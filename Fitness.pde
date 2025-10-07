@@ -1,7 +1,15 @@
 void setupFitnessScreen(Screen s, UIManager ui) {
-  myGraph = new SerialGraph(50, 100, 800, 400, myPort);
+  myGraph = new SerialGraph(50, 100, 800, 400);
   s.add(myGraph);
 
+
+  Thread readerThread = new Thread(new SerialReader());
+  readerThread.start();
+  
+  //DELETE ME
+  // Thread fakeReader = new Thread(new FakeSerialReader());
+  // fakeReader.start();
+ 
   Button fitnessBtn = new Button(width/2 - 100, height - 100, 200, 50, "Fitness Action", 0, primaryColor2);
   fitnessBtn.onClick = () -> fitnessBtn.pressed = !fitnessBtn.pressed;
   s.add(fitnessBtn);
@@ -23,21 +31,21 @@ void GraphVisualElements(SerialGraph g) {
   textAlign(RIGHT, CENTER);
 
   for (int bpm = 0; bpm <= 220; bpm += 20) {
-    float yPos = map(bpm, 0, 220, g.graphHeight, 0);
-    line(0, yPos, g.graphWidth, yPos);        // reference line
+    float yPos = map(bpm, 0, 220, g.h, 0);
+    line(0, yPos, g.w, yPos);        // reference line
     text(bpm, -10, yPos);                     // label on left
   }
 
   // Optional: draw HR zones as background bands
   noStroke();
   fill(0, 255, 0, 30);                        // Resting green (0–100)
-  rect(0, map(100, 0, 220, g.graphHeight, 0), g.graphWidth, g.graphHeight - map(100, 0, 220, g.graphHeight, 0));
+  rect(0, map(100, 0, 220, g.h, 0), g.w, g.h - map(100, 0, 220, g.h, 0));
 
   fill(255, 165, 0, 30);                      // Moderate orange (100–140)
-  rect(0, map(140, 0, 220, g.graphHeight, 0), g.graphWidth, map(100, 0, 220, g.graphHeight, 0) - map(140, 0, 220, g.graphHeight, 0));
+  rect(0, map(140, 0, 220, g.h, 0), g.w, map(100, 0, 220, g.h, 0) - map(140, 0, 220, g.h, 0));
 
   fill(255, 0, 0, 30);                        // High red (140–220)
-  rect(0, 0, g.graphWidth, map(140, 0, 220, g.graphHeight, 0));
+  rect(0, 0, g.w, map(140, 0, 220, g.h, 0));
 
   popMatrix();
 }

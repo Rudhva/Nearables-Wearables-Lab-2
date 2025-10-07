@@ -49,7 +49,6 @@ void setup() {
 void draw() {
   drawBackground();
 
-
   ui.display();
 }
 
