@@ -1,61 +1,97 @@
+// -------------------
+// Global color palette
+color primaryColor1     = color(111, 78, 97);    // Deep Plum
+color primaryColor2     = color(244, 235, 211);  // Light Beige
+color primaryColor3     = color(232, 188, 185);  // Pinkish
+color backgroundColor   = color(152, 161, 188);  // Light Blueish
+color successColor      = color(116, 194, 155);  // Greenish
+
+
+//UI Variables
 UIManager ui;
-Screen tab1Screen, tab2Screen, tab3Screen;
-Button tab1Btn, tab2Btn, tab3Btn;
+Screen fitnessScreen, stressScreen, meditationScreen;
+Button fitnessTabBtn, stressTabBtn, meditationTabBtn; color meditationBg;
+Screen[] screens;
+Button[] tabs;
+// -------------------
+
+
+//Serial Stuff
+
+// -------------------
 
 void setup() {
-  size(600, 400);
+  size(1000, 750);
+  frameRate(30);
+
+  textAlign(CENTER, CENTER);
+  textSize(14);
+
   ui = new UIManager();
+  meditationBg = backgroundColor;
 
   // Screens
-  tab1Screen = new Screen();
-  tab2Screen = new Screen();
-  tab3Screen = new Screen();
-  
-  // Example content for each screen
-  tab1Screen.add(new Button(100, 100, 150, 60, "Tab1 Btn1", 0));
-  tab2Screen.add(new Button(100, 100, 150, 60, "Tab2 Btn1", 0));
-  tab3Screen.add(new Button(100, 100, 150, 60, "Tab3 Btn1", 0));
+  setupSerial();
+  fitnessScreen = new Screen();  
+  setupFitnessScreen(fitnessScreen, ui);
 
-  // Default: show tab1
-  tab1Screen.on();
-  tab2Screen.off();
-  tab3Screen.off();
-  
-  // Add screens to UIManager
-  ui.addScreen(tab1Screen);
-  ui.addScreen(tab2Screen);
-  ui.addScreen(tab3Screen);
+  stressScreen = new Screen();
+  setupStressScreen(stressScreen, ui);
 
-  // Tab buttons (always on top layer)
-  tab1Btn = new Button(50, 20, 100, 30, "Tab 1", 10);
-  tab2Btn = new Button(160, 20, 100, 30, "Tab 2", 10);
-  tab3Btn = new Button(270, 20, 100, 30, "Tab 3", 10);
+  meditationScreen = new Screen();
+  setupMeditationScreen(meditationScreen, ui);
 
-  ui.add(tab1Btn);
-  ui.add(tab2Btn);
-  ui.add(tab3Btn);
+  // Tabs
+  setupTabs();
 }
 
+
 void draw() {
-  background(240);
+  drawBackground();
+
+
   ui.display();
 }
 
 void mousePressed() {
   ui.handleInput();
+}
 
-  // Tab button logic
-  if (tab1Btn.isHovered()) {
-    tab1Screen.on();
-    tab2Screen.off();
-    tab3Screen.off();
-  } else if (tab2Btn.isHovered()) {
-    tab1Screen.off();
-    tab2Screen.on();
-    tab3Screen.off();
-  } else if (tab3Btn.isHovered()) {
-    tab1Screen.off();
-    tab2Screen.off();
-    tab3Screen.on();
+// -------------------
+// Tabs setup
+void setupTabs() {
+  noStroke();
+  float tabW = width / 3.0;
+  float tabH = height * 0.06;
+
+  fitnessTabBtn    = new Button(0, 0, tabW, tabH, "Fitness", 10, primaryColor1);
+  stressTabBtn     = new Button(tabW, 0, tabW, tabH, "Stress Mode", 10, primaryColor1);
+  meditationTabBtn = new Button(tabW*2, 0, tabW, tabH, "Meditation", 10, primaryColor1);
+
+  // --- Make tab fonts white and bold ---
+  fitnessTabBtn.textColor = color(255);
+  stressTabBtn.textColor = color(255);
+  meditationTabBtn.textColor = color(255);
+  // -------------------------------------
+
+  tabs = new Button[]{fitnessTabBtn, stressTabBtn, meditationTabBtn};
+  screens = new Screen[]{fitnessScreen, stressScreen, meditationScreen};
+
+  for (int i = 0; i < tabs.length; i++) {
+    int idx = i;
+    tabs[i].onClick = () -> {
+      for (int j = 0; j < screens.length; j++) screens[j].visible = (j == idx);
+    };
+    ui.add(tabs[i]);
+  }
+}
+
+// -------------------
+// Background drawing
+void drawBackground() {
+  if (meditationScreen.visible) {
+    background(meditationBg);
+  } else {
+    background(backgroundColor);
   }
 }
