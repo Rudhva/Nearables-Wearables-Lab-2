@@ -92,16 +92,18 @@ class Message extends UIComponent {
 class Screen {
   ArrayList<UIComponent> components = new ArrayList<UIComponent>();
   boolean visible = true;
+  color bgColor = color(backgroundColor);
 
   void add(UIComponent c) { components.add(c); }
 
   void display() {
     if (!visible) return;
+    background(bgColor);
     for (UIComponent c : components) c.display();
   }
 
   void handleInput() {
-    if (!visible) return;
+    if (!visible) return;    
     for (UIComponent c : components) {
       if (c.visible && c.isHovered()) {
         c.handleInput();
