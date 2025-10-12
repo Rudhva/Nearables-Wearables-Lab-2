@@ -1,19 +1,40 @@
+// -------------------
+// Fitness Mode Age Input
+// -------------------
+int userAge = -1;  // -1 means "not yet set"
+
+// Call this at the start of fitness mode
+void askUserAge() {
+  if (userAge == -1) {  // only ask once
+    String input = javax.swing.JOptionPane.showInputDialog("Please enter your age: (99 will give fake data)");
+    if (input != null && input.length() > 0) {
+      try {
+        userAge = Integer.parseInt(input);
+        println("User age set to: " + userAge);
+      } catch (NumberFormatException e) {
+        println("Invalid input, using default age 0");
+        userAge = 0;  // fallback if invalid
+      }
+    } else {
+      userAge = 0;  // fallback if user cancels
+    }
+  }
+}
+
+
 void setupFitnessScreen(Screen s, UIManager ui) {
   myGraph = new SerialGraph(50, 100, 800, 400);
   s.add(myGraph);
+  askUserAge();
 
-
-  Thread readerThread = new Thread(new SerialReader());
-  readerThread.start();
-  
-  //DELETE ME
-  // Thread fakeReader = new Thread(new FakeSerialReader());
-  // fakeReader.start();
+  if(userAge == 99){
+    Thread fakeReader = new Thread(new FakeSerialReader());
+  fakeReader.start();
+  } else {
+    Thread readerThread = new Thread(new SerialReader());
+    readerThread.start();
+  }
  
-  Button fitnessBtn = new Button(width/2 - 100, height - 100, 200, 50, "Fitness Action", 0, primaryColor2);
-  fitnessBtn.onClick = () -> fitnessBtn.pressed = !fitnessBtn.pressed;
-  s.add(fitnessBtn);
-
   ui.addScreen(s); 
 }
 

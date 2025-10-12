@@ -16,23 +16,61 @@ void setupSerial() {
 class FakeSerialReader implements Runnable {
   public void run() {
     float t = 0;
-    float fsrBase = 500; // middle baseline
+    float fsrBase = 500;      // baseline
+    float fsrAmplitude = 200; // peak amplitude
+    float breathCycle = 2.0;  // total seconds per breath (inhale + exhale)
+
     while (true) {
-      // Simulated ECG waveform (spikes with noise)
-      float ecg = sin(t * TWO_PI * 2) * 0.7 + random(-0.05, 0.05);
-      if (random(1) < 0.02) ecg = 1.0; // occasional spike (heartbeat)
-      
-      // Simulated slow FSR breathing waveform
-      float fsr = fsrBase + 200 * sin(t * TWO_PI / 5.0);
-      
+      // -----------------
+      // ECG: stylized P-QRS-T waveform
+      // -----------------
+      float phase = (t % 1.0); // 1-second heartbeat cycle
+      float ecgRaw = 0;
+
+      ecgRaw += 0.1 * exp(-pow((phase - 0.1) / 0.02, 2));  // P wave
+      ecgRaw += -0.15 * exp(-pow((phase - 0.2) / 0.01, 2)); // Q wave
+      ecgRaw += 1.0 * exp(-pow((phase - 0.25) / 0.015, 2)); // R wave
+      ecgRaw += -0.25 * exp(-pow((phase - 0.28) / 0.01, 2));// S wave
+      ecgRaw += 0.3 * exp(-pow((phase - 0.4) / 0.04, 2));   // T wave
+      ecgRaw += random(-0.02, 0.02); // small noise
+      float ecg = constrain(ecgRaw, -1, 1) * 512;
+
+      // -----------------
+      // Realistic FSR breathing (~1 sec inhale, 1 sec exhale)
+      // -----------------
+      float breathPhase = (t % breathCycle) / breathCycle; // normalized [0,1]
+      float fsr;
+
+      if (breathPhase < 0.25) {
+        // inhale ramp (first 25% of cycle)
+        fsr = map(breathPhase, 0, 0.25, 0, fsrAmplitude);
+      } else if (breathPhase < 0.5) {
+        // hold at peak
+        fsr = fsrAmplitude;
+      } else if (breathPhase < 0.75) {
+        // exhale ramp
+        fsr = map(breathPhase, 0.5, 0.75, fsrAmplitude, 0);
+      } else {
+        // hold at baseline
+        fsr = 0;
+      }
+
+      fsr += fsrBase;          // add baseline offset
+      fsr += random(-5, 5);    // small noise
+
+      // -----------------
+      // Feed to graph
+      // -----------------
       myGraph.addECG(ecg);
       myGraph.addFSR(fsr);
-      
-      t += 0.01;
-      delay(10); // controls update rate (~100 Hz)
+
+      t += 0.004;
+      delay(4);
     }
   }
 }
+
+
 // -------------------------------------------------------------
 
 
@@ -118,115 +156,59 @@ class SerialGraph extends UIComponent {
     }
   }
 
+  void handleInput() {} // required by UIComponent
+
 void display() {
   pushMatrix();
   translate(x, y);
 
-  // baseline
-  stroke(255, 0, 0, 50);
-  line(0, h/2, w, h/2);  // middle of graph
+  float fsrOffset = h - 100;
 
-  // ECG
+  // --- ECG Axis (Left) ---
+  stroke(100);
+  strokeWeight(1);
+  line(0, 0, 0, h);  // left Y-axis
+  line(0, h/2, w, h/2); // X baseline
+
+  fill(0);
+  textSize(12);
+  textAlign(RIGHT, CENTER);
+  text("550", -5, map(550, -512, 512, h, 0));
+  text("0", -5, map(0, -512, 512, h, 0));
+  text("-550", -5, map(-550, -512, 512, h, 0));
+
+  // --- ECG Graph ---
   stroke(0, 255, 0);
   noFill();
   beginShape();
   for (int i = 0; i < ecgValues.length; i++) {
     int idx = (headECG + i) % ecgValues.length;
-
-    // Map ECG from -500..500 to 0..h (invert Y for Processing)
-    float val = map(ecgValues[idx], -500, 500, h, 0);
+    float val = map(ecgValues[idx], -512, 512, h, 0);
     vertex(i, val);
   }
   endShape();
 
-  // FSR
+  // --- FSR Axis (Right) ---
+  float axisX = w; // right side
+  stroke(100);
+  line(axisX, fsrOffset, axisX, fsrOffset + h); // right Y-axis
+
+  textAlign(LEFT, CENTER);
+  text("700", axisX + 5, fsrOffset + map(700, 0, 1023, h, 0));
+  text("500", axisX + 5, fsrOffset + map(500, 0, 1023, h, 0));
+  text("300", axisX + 5, fsrOffset + map(300, 0, 1023, h, 0));
+
+  // --- FSR Graph ---
   stroke(0, 150, 255);
   noFill();
   beginShape();
   for (int i = 0; i < fsrValues.length; i++) {
     int idx = (headFSR + i) % fsrValues.length;
-
-    // Map FSR from 0..1023 to 0..h (invert Y for Processing)
-    float val = map(fsrValues[idx], 0, 1023, h, 0);
+    float val = map(fsrValues[idx], 0, 1023, h, 0) + fsrOffset;
     vertex(i, val);
   }
   endShape();
 
   popMatrix();
 }
-
-  void handleInput() {} // required by UIComponent
-}
-
-
-
-
-
-
-
-class ECGFilter {
-  // === Internal state for filters ===
-  float prevRaw = 0;          // previous raw ECG sample for HPF
-  float prevHPF = 0;          // previous HPF output
-  float prevEMA = 0;          // previous EMA output
-  float alphaEMA = 0.05;      // smoothing factor for EMA
-
-  // For median filter
-  int medianWindow = 5;
-  float[] buffer;
-  int bufferIndex = 0;
-  int bufferSize;
-
-  // Constructor
-  ECGFilter(int windowSize) {
-    bufferSize = windowSize;
-    buffer = new float[bufferSize];
-    for (int i = 0; i < bufferSize; i++) buffer[i] = 0;
-  }
-
-  // === Entry point ===
-  float cleanData(float sample) {
-    float value = sample;
-
-    // --- Baseline removal / High-pass filter ---
-    // comment out to disable
-    value = highPassFilter(value);
-
-    // --- Median filter ---
-    // comment out to disable
-    value = medianFilter(value);
-
-    // --- EMA / Low-pass smoothing ---
-    // comment out to disable
-    value = emaFilter(value);
-
-    return value;
-  }
-
-  // === High-pass filter (baseline wander removal) ===
-  float highPassFilter(float x) {
-    float R = 0.995;
-    float y = x - prevRaw + R * prevHPF;
-    prevRaw = x;
-    prevHPF = y;
-    return y;
-  }
-
-  // === EMA / low-pass filter ===
-  float emaFilter(float x) {
-    float y = alphaEMA * x + (1 - alphaEMA) * prevEMA;
-    prevEMA = y;
-    return y;
-  }
-
-  // === Median filter for spike removal ===
-  float medianFilter(float x) {
-    buffer[bufferIndex] = x;
-    bufferIndex = (bufferIndex + 1) % bufferSize;
-
-    float[] temp = new float[bufferSize];
-    arrayCopy(buffer, temp);
-    java.util.Arrays.sort(temp);
-    return temp[bufferSize / 2];
-  }
 }
